@@ -1,0 +1,73 @@
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio-server
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${ID_KEY}
+      MINIO_ROOT_PASSWORD: ${SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    command: server --console-address ":9001" /data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  storage-service:
+    build:
+      context: ./StorageService
+      dockerfile: Dockerfile
+    container_name: storage-service-app
+    ports:
+      - "8080:8080"
+    environment:
+      # env settings
+      - ID_KEY=${ID_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  metadata-service:
+    build:
+      context: ./MetadataService
+      dockerfile: Dockerfile
+    container_name: metadata-service-app
+    ports:
+      - "8081:8081"
+    environment:
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_started
+      minio:
+        condition: service_healthy
+      storage-service:
+        condition: service_started
+
+  postgres:
+    image: postgres:18.4
+    restart: "no"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+volumes:
+  minio_data:
+  postgres_data:

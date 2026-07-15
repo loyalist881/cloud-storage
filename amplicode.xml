@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AmplicodePersistenceUnitSettings">
+    <persistence-units>
+      <persistence-unit moduleName="metadataservice" name="Default">
+        <packages>
+          <package value="com.github.loyalist.metadataservice" />
+        </packages>
+      </persistence-unit>
+      <persistence-unit moduleName="dto" name="Default">
+        <packages>
+          <package value="com.github.loyalist.dto" />
+        </packages>
+      </persistence-unit>
+      <persistence-unit moduleName="storageservice" name="Default">
+        <packages>
+          <package value="com.github.loyalist.storageservice" />
+        </packages>
+      </persistence-unit>
+    </persistence-units>
+  </component>
+</project>
