@@ -25,7 +25,9 @@ public class FileMetadataService {
     public FileMetadataEntity saveFileMetadata(UploadDto uploadDto) {
         FileMetadataEntity fileMetadataEntity = new FileMetadataEntity();
         fileMetadataEntity.setUserId(uploadDto.getUserId());
-        fileMetadataEntity.setFilename(uploadDto.getFilename());
+        String original = uploadDto.getFilename();
+        String nameWithoutExt = original.substring(0, original.lastIndexOf('.'));
+        fileMetadataEntity.setFilename(nameWithoutExt);
         fileMetadataEntity.setS3Key(uploadDto.getS3Key());
         fileMetadataEntity.setSizeFile(uploadDto.getSizeFile());
         fileMetadataEntity.setContentType(uploadDto.getContentType());

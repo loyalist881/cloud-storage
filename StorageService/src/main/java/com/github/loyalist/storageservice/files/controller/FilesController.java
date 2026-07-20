@@ -2,6 +2,8 @@ package com.github.loyalist.storageservice.files.controller;
 
 import com.github.loyalist.dto.metadata.GetAllDto;
 import com.github.loyalist.storageservice.files.service.FilesService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,7 +24,6 @@ import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
 @RestController
 @RequestMapping("/files")
 @Tag(name = "Files", description = "Операции для работы с файлами")
-@ApiResponses(@ApiResponse(responseCode = "200", useReturnTypeSchema = true))
 public class FilesController {
     private final FilesService filesService;
 
@@ -31,8 +32,13 @@ public class FilesController {
     }
 
     @PostMapping(path = "/upload", consumes = MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Сохранение файла",
+            description = "Загружаем файл в s3-хранилище")
+    @ApiResponse(responseCode = "200", description = "Файл успешно сохранен")
     public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file,
+                                             @Parameter(description = "Имя файла")
                                              @RequestParam(value = "filename", required = false) String filename,
+                                             @Parameter(description = "ID пользователя-владельца файла", required = true)
                                              @RequestHeader("X-User-Id") Long userId) {
         String originalFilename;
         if (filename != null && !filename.trim().isEmpty()) {
@@ -53,14 +59,26 @@ public class FilesController {
     }
 
     @GetMapping("/names")
+    @Operation(summary = "Имена файлов",
+            description = "Возвращает список имен всех файлов хранящихся в s3-хранилище в количестве 10 имен")
+    @ApiResponse(responseCode = "200", description = "Список файлов успешно получен")
     public ResponseEntity<List<GetAllDto>> getAllFilenames(
+            @Parameter(description = "Лимит выведенных имен")
             @RequestParam(value = "limit", defaultValue = "10") int limit) {
         List<GetAllDto> filenames = filesService.getAllFilename(limit);
         return ResponseEntity.ok(filenames);
     }
 
     @GetMapping("/download")
-    public ResponseEntity<InputStreamResource> downloadFile(@RequestHeader("X-User-Id") Long userId,
+    @Operation(summary = "Скачивание файла",
+            description = "Скачивание файла на диск с помощью InputStreamResource и HttpHeaders")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Файл успешно скачан"),
+            @ApiResponse(responseCode = "404", description = "Файл не найден для указанного пользователя")
+    })
+    public ResponseEntity<InputStreamResource> downloadFile(@Parameter(description = "ID пользователя-владельца файла", required = true)
+                                                            @RequestHeader("X-User-Id") Long userId,
+                                                            @Parameter(description = "Имя файла", required = true)
                                                             @RequestParam("filename") String filename) {
         var inputStream = filesService.downloadFile(userId, filename);
         InputStreamResource resource = new InputStreamResource(inputStream);
@@ -73,22 +91,37 @@ public class FilesController {
     }
 
     @DeleteMapping("/delete")
-    public ResponseEntity<String> deleteFile(@RequestHeader("X-User-Id") Long userId,
+    @Operation(summary = "Удаление файла",
+            description = "Удаляет файл из s3-хранилища")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Файл успешно удален"),
+            @ApiResponse(responseCode = "404", description = "Файл для удаления не найден")
+    })
+    public ResponseEntity<String> deleteFile(@Parameter(description = "ID пользователя-владельца файла", required = true)
+                                             @RequestHeader("X-User-Id") Long userId,
+                                             @Parameter(description = "Имя файла", required = true)
                                              @RequestParam("filename") String filename) {
         filesService.deleteFile(userId, filename);
         return ResponseEntity.ok("Файл '" + filename + "' успешно удален");
     }
 
     @PutMapping("/rename")
-    public ResponseEntity<String> renameFile(@RequestHeader("X-User-Id") Long userId,
+    @Operation(summary = "Переименовывание файла",
+            description = "Получает ответ от 'MetadataService' о том, переименован ли файл или нет")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Имя файла успешно обновлено"),
+            @ApiResponse(responseCode = "404", description = "Файл для переименования не найден")
+    })
+    public ResponseEntity<String> renameFile(@Parameter(description = "ID пользователя-владельца файла", required = true)
+                                             @RequestHeader("X-User-Id") Long userId,
+                                             @Parameter(description = "Старое имя файла", required = true)
                                              @RequestParam("oldFilename") String oldFilename,
+                                             @Parameter(description = "Новое имя файла", required = true)
                                              @RequestParam("newFilename") String newFilename) {
         filesService.renameFile(userId, oldFilename, newFilename);
         return ResponseEntity.ok("Файл '" + oldFilename + "' успешно переименован в '" + newFilename + "'");
     }
 
-    // С помощью кастомного getHttpHeaders мы вязли contentLength и contentType напрямую из метаданных Minio
-    // Это значит, что файл не читается дважды, память не расходуется
     private static @NonNull HttpHeaders getHttpHeaders(ResponseInputStream<GetObjectResponse> inputStream, String filename) {
         var headers = new HttpHeaders();
         headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
