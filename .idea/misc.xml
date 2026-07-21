@@ -8,6 +8,7 @@
         <option value="$PROJECT_DIR$/StorageService/pom.xml" />
         <option value="$PROJECT_DIR$/MetadataService/pom.xml" />
         <option value="$PROJECT_DIR$/DTO/pom.xml" />
+        <option value="$PROJECT_DIR$/RegistrationProcess/pom.xml" />
       </list>
     </option>
   </component>

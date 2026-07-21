@@ -1,11 +1,9 @@
 package com.github.loyalist.metadataservice.controller;
 
-import com.github.loyalist.dto.metadata.DeleteDto;
-import com.github.loyalist.dto.metadata.UploadDto;
-import com.github.loyalist.dto.metadata.GetAllDto;
-import com.github.loyalist.dto.metadata.RenameDto;
+import com.github.loyalist.dto.metadata.*;
 import com.github.loyalist.metadataservice.entity.FileMetadataEntity;
-import com.github.loyalist.metadataservice.service.FileMetadataService;
+import com.github.loyalist.metadataservice.entity.UserEntity;
+import com.github.loyalist.metadataservice.service.MetadataService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -23,12 +21,12 @@ import java.util.List;
 @RestController
 @RequestMapping("/files")
 @Tag(name = "Files", description = "Операции для работы с метаданными файлов")
-public class FileMetadataController {
-    private final FileMetadataService fileMetadataService;
+public class MetadataController {
+    private final MetadataService metadataService;
 
     @Autowired
-    public FileMetadataController(FileMetadataService fileMetadataService) {
-        this.fileMetadataService = fileMetadataService;
+    public MetadataController(MetadataService metadataService) {
+        this.metadataService = metadataService;
     }
 
     @PostMapping("/save")
@@ -36,7 +34,7 @@ public class FileMetadataController {
             description = "Возвращает в микросервис 'StorageService' информацию о том, что метаданные файла сохранены в БД")
     @ApiResponse(responseCode = "200", description = "Метаданные успешно сохранены")
     public ResponseEntity<String> saveFileMetadata(@RequestBody UploadDto uploadDto) {
-        FileMetadataEntity fileMetadataEntity = fileMetadataService.saveFileMetadata(uploadDto);
+        FileMetadataEntity fileMetadataEntity = metadataService.saveFileMetadata(uploadDto);
         return ResponseEntity.ok("Успешно сохранено с ID: " + fileMetadataEntity.getId());
     }
 
@@ -50,10 +48,10 @@ public class FileMetadataController {
     public ResponseEntity<UploadDto> downloadFileMetadata(
             @Parameter(description = "ID пользователя-владельца файла", required = true) @RequestParam("userId") Long userId,
             @Parameter(description = "Имя файла", required = true) @RequestParam("filename") String filename) {
-        return fileMetadataService.findByUserIdAndFilename(userId, filename)
+        return metadataService.findByUserIdAndFilename(userId, filename)
                 .map(entity -> {
                     UploadDto uploadDto = UploadDto.builder()
-                            .userId(entity.getUserId())
+                            .userId(entity.getId())
                             .filename(entity.getFilename())
                             .s3Key(entity.getS3Key())
                             .sizeFile(entity.getSizeFile())
@@ -71,8 +69,8 @@ public class FileMetadataController {
             @ApiResponse(responseCode = "404", description = "Файл для переименования не найден")
     })
     public ResponseEntity<String> renameFileMetadata(@RequestBody RenameDto renameDto) {
-        fileMetadataService.renameFileMetadata(renameDto.getOldFilename(), renameDto.getNewFilename(), renameDto.getUserId());
-        return fileMetadataService.findByUserIdAndFilename(renameDto.getUserId(), renameDto.getNewFilename())
+        metadataService.renameFileMetadata(renameDto.getOldFilename(), renameDto.getNewFilename(), renameDto.getUserId());
+        return metadataService.findByUserIdAndFilename(renameDto.getUserId(), renameDto.getNewFilename())
                 .map(file -> ResponseEntity.ok("Файл успешно переименован на: " + file.getFilename()))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -82,7 +80,7 @@ public class FileMetadataController {
             description = "Возвращает список имен всех файлов хранящихся в БД")
     @ApiResponse(responseCode = "200", description = "Список файлов успешно получен")
     public ResponseEntity<List<GetAllDto>> getAllFileMetadata(@ParameterObject @PageableDefault(page = 0, size = 10) Pageable pageable) {
-        List<GetAllDto> filenames = fileMetadataService.getAllFilenames(pageable);
+        List<GetAllDto> filenames = metadataService.getAllFilenames(pageable);
         return ResponseEntity.ok(filenames);
     }
 
@@ -96,13 +94,34 @@ public class FileMetadataController {
     public ResponseEntity<DeleteDto> deleteFileMetadata(
             @Parameter(description = "ID пользователя-владельца файла", required = true) @RequestParam("userId") Long userId,
             @Parameter(description = "Имя файла", required = true) @RequestParam("filename") String filename) {
-        return fileMetadataService.findByUserIdAndFilename(userId, filename)
+        return metadataService.findByUserIdAndFilename(userId, filename)
                 .map(entity -> {
                     DeleteDto metadataDeleteDto = DeleteDto.builder()
                             .s3Key(entity.getS3Key())
                             .build();
-                    fileMetadataService.deleteById(entity.getId());
+                    metadataService.deleteById(entity.getId());
                     return ResponseEntity.ok(metadataDeleteDto);
                 }).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/login")
+    @Operation(summary = "Получение почты и пароля",
+            description = "Получает от 'RegistrationService' почту и пароль пользователя, " +
+                    "проверяет их, а затем отправляет обратно id и почту")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Метаданные найдены"),
+            @ApiResponse(responseCode = "404", description = "Метаданные не найден")
+    })
+    public ResponseEntity<UserDto> findEmailAndPassword(@RequestBody UserDto userDto) {
+        return metadataService.findEmailAndPassword(userDto.getEmail(), userDto.getPassword())
+        .map(user -> {
+            UserDto responseDto = UserDto.builder()
+                    .id(user.getId())
+                    .email(user.getEmail())
+                    .build();
+
+            return ResponseEntity.ok(responseDto);
+        })
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

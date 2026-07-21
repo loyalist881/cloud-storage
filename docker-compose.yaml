@@ -51,6 +51,16 @@ services:
       storage-service:
         condition: service_started
 
+#  registration-process:
+#    build:
+#      context: ./RegistrationProcess
+#      dockerfile: Dockerfile
+#    container_name: registration-service-app
+#    ports:
+#      - "8082:8082"
+#    environment:
+#      -
+
   postgres:
     image: postgres:18.4
     restart: "no"
@@ -68,6 +78,18 @@ services:
       timeout: 5s
       start_period: 10s
       retries: 5
+
+#  redis:
+#    image: redis:8.8.0
+#    restart: "no"
+#    ports:
+#      - "6379:6379"
+#    healthcheck:
+#      test: redis-cli ping
+#      interval: 10s
+#      timeout: 5s
+#      start_period: 10s
+#      retries: 5
 
 volumes:
   minio_data:
