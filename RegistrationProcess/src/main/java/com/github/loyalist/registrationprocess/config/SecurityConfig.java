@@ -24,9 +24,9 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests((authorize) -> authorize
-                        .requestMatchers("/api/login").permitAll() // Разрешаем всем стучаться в ваш метод
+                        .requestMatchers("/api/login").permitAll()
                         .requestMatchers("/api/register").permitAll()
-                        .anyRequest().authenticated() // Все остальные запросы требуют сессию из Redis
+                        .anyRequest().authenticated()
                 );
 
         return http.build();
