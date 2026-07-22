@@ -2,6 +2,7 @@ package com.github.loyalist.metadataservice.repository;
 
 import com.github.loyalist.dto.metadata.GetAllDto;
 import com.github.loyalist.metadataservice.entity.FileMetadataEntity;
+import com.github.loyalist.metadataservice.entity.UserEntity;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -13,7 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface FileMetadataRepository extends JpaRepository<FileMetadataEntity, Long> {
+public interface MetadataRepository extends JpaRepository<FileMetadataEntity, Long> {
     @Query(nativeQuery = true,
             value = "SELECT * FROM cloud.metadata u where u.user_id=?1 and u.filename=?2")
     Optional<FileMetadataEntity> findByUserIdAndFilename(Long userId, String filename);
@@ -27,4 +28,8 @@ public interface FileMetadataRepository extends JpaRepository<FileMetadataEntity
             value = "SELECT size_file, filename FROM cloud.metadata",
             countQuery = "SELECT count(*) FROM cloud.metadata")
     List<GetAllDto> getAllFilenames(Pageable pageable);
+
+    @Query(nativeQuery = true,
+            value = "SELECT * FROM cloud.user u where u.e_mail=?1 and u.password=?2")
+    Optional<UserEntity> findEmailAndPassword(String email, String password);
 }

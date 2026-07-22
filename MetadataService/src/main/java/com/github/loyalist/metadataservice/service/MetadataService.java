@@ -3,7 +3,8 @@ package com.github.loyalist.metadataservice.service;
 import com.github.loyalist.dto.metadata.UploadDto;
 import com.github.loyalist.dto.metadata.GetAllDto;
 import com.github.loyalist.metadataservice.entity.FileMetadataEntity;
-import com.github.loyalist.metadataservice.repository.FileMetadataRepository;
+import com.github.loyalist.metadataservice.entity.UserEntity;
+import com.github.loyalist.metadataservice.repository.MetadataRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
@@ -13,12 +14,12 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-public class FileMetadataService {
-    private final FileMetadataRepository fileMetadataRepository;
+public class MetadataService {
+    private final MetadataRepository metadataRepository;
 
     @Autowired
-    public FileMetadataService(FileMetadataRepository fileMetadataRepository) {
-        this.fileMetadataRepository = fileMetadataRepository;
+    public MetadataService(MetadataRepository metadataRepository) {
+        this.metadataRepository = metadataRepository;
     }
 
     @Transactional
@@ -32,26 +33,31 @@ public class FileMetadataService {
         fileMetadataEntity.setSizeFile(uploadDto.getSizeFile());
         fileMetadataEntity.setContentType(uploadDto.getContentType());
 
-        return fileMetadataRepository.save(fileMetadataEntity);
+        return metadataRepository.save(fileMetadataEntity);
     }
 
     @Transactional(readOnly = true)
     public Optional<FileMetadataEntity> findByUserIdAndFilename(Long userId, String filename) {
-        return fileMetadataRepository.findByUserIdAndFilename(userId, filename);
+        return metadataRepository.findByUserIdAndFilename(userId, filename);
     }
 
     @Transactional
     public void renameFileMetadata(String oldFilename, String newFilename, Long userId) {
-        fileMetadataRepository.renameFileMetadata(oldFilename, newFilename, userId);
+        metadataRepository.renameFileMetadata(oldFilename, newFilename, userId);
     }
 
     @Transactional(readOnly = true)
     public List<GetAllDto> getAllFilenames(Pageable pageable) {
-        return fileMetadataRepository.getAllFilenames(pageable);
+        return metadataRepository.getAllFilenames(pageable);
     }
 
     @Transactional
     public void deleteById(Long id) {
-        fileMetadataRepository.deleteById(id);
+        metadataRepository.deleteById(id);
+    }
+
+    @Transactional
+    public Optional<UserEntity> findEmailAndPassword(String email, String password) {
+        return metadataRepository.findEmailAndPassword(email, password);
     }
 }
