@@ -7,12 +7,16 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
@@ -22,22 +26,25 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA;
+import static org.springframework.http.MediaType.parseMediaType;
+
 
 @Service
 public class RegistrationService implements AuthenticationProvider {
     private final RestClient metadataRestClient;
     private final RestClient storageRestClient;
+    private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    public RegistrationService(RestClient metadataRestClient, RestClient storageRestClient) {
+    public RegistrationService(RestClient metadataRestClient, RestClient storageRestClient, PasswordEncoder passwordEncoder) {
         this.metadataRestClient = metadataRestClient;
         this.storageRestClient = storageRestClient;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    public UserDto checkData(String email, String password) {
+    public UserDto checkData(String email) {
         UserDto userDto = UserDto.builder()
                 .email(email)
-                .password(password)
                 .build();
         try {
             return metadataRestClient.post()
@@ -52,7 +59,7 @@ public class RegistrationService implements AuthenticationProvider {
                         throw new RegistrationException("Ошибка MetadataService: " + errorBody);
                     })
                     .body(UserDto.class);
-        } catch (RegistrationException e) {
+        } catch (RegistrationException | FileNotFoundMetadataException e) {
             throw e;
         } catch (Exception e) {
             throw new RegistrationException("MetadataService недоступен или произошла системная ошибка", e);
@@ -121,7 +128,7 @@ public class RegistrationService implements AuthenticationProvider {
                     .body(new ParameterizedTypeReference<>() {});
 
             return metadata;
-        } catch (RegistrationException e) {
+        } catch (RegistrationException | FileNotFoundMetadataException e) {
             throw e;
         } catch (Exception e) {
             throw new RegistrationException("MetadataService недоступен или произошла системная ошибка", e);
@@ -148,7 +155,7 @@ public class RegistrationService implements AuthenticationProvider {
                         throw new RegistrationException("Ошибка MetadataService: " + errorBody);
                     })
                     .body(String.class);
-        } catch (RegistrationException e) {
+        } catch (RegistrationException | FileNotFoundMetadataException e) {
             throw e;
         } catch (Exception e) {
             throw new RegistrationException("MetadataService недоступен или произошла системная ошибка", e);
@@ -170,7 +177,7 @@ public class RegistrationService implements AuthenticationProvider {
                             throw new RegistrationException("Ошибка MetadataService: " + errorBody);
                     })
                     .body(DeleteDto.class);
-        } catch (RegistrationException e) {
+        } catch (RegistrationException | FileNotFoundMetadataException e) {
             throw e;
         } catch (Exception e) {
             throw new RegistrationException("MetadataService недоступен или произошла системная ошибка", e);
@@ -192,14 +199,14 @@ public class RegistrationService implements AuthenticationProvider {
                         throw new RegistrationException("Ошибка MetadataService: " + errorBody);
                     })
                     .body(String.class);
-        } catch (RegistrationException e) {
+        } catch (RegistrationException | FileNotFoundMetadataException e) {
             throw e;
         } catch (Exception e) {
             throw new RegistrationException("StorageService недоступен или произошла системная ошибка", e);
         }
     }
 
-    public Resource downloadFile(Long userId, String filename) {
+    public ResponseEntity<Resource> downloadFile(Long userId, String filename) {
         UploadDto metadata;
         try {
             metadata = metadataRestClient.get()
@@ -214,7 +221,7 @@ public class RegistrationService implements AuthenticationProvider {
                         throw new RegistrationException("Ошибка MetadataService: " + errorBody);
                     })
                     .body(UploadDto.class);
-        } catch (RegistrationException e) {
+        } catch (RegistrationException | FileNotFoundMetadataException e) {
             throw e;
         } catch (Exception e) {
             throw new RegistrationException("MetadataService недоступен или произошла системная ошибка", e);
@@ -224,8 +231,9 @@ public class RegistrationService implements AuthenticationProvider {
             throw new FileNotFoundMetadataException("Метаданные файла не получены для: " + filename);
         }
 
+        Resource resource;
         try {
-            return storageRestClient.get()
+            resource = storageRestClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/files/download")
                             .queryParam("s3Key", metadata.getS3Key())
@@ -233,14 +241,19 @@ public class RegistrationService implements AuthenticationProvider {
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
                         String errorBody = new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);
-                        throw new RegistrationException("Ошибка MetadataService: " + errorBody);
+                        throw new RegistrationException("Ошибка StorageService: " + errorBody);
                     })
                     .body(Resource.class);
-        } catch (RegistrationException e) {
+        } catch (RegistrationException | FileNotFoundMetadataException e) {
             throw e;
         } catch (Exception e) {
-            throw new RegistrationException("MetadataService недоступен или произошла системная ошибка", e);
+            throw new RegistrationException("StorageService недоступен или произошла системная ошибка", e);
         }
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + metadata.getFilename() + "\"")
+                .contentType(parseMediaType(metadata.getContentType()))
+                .body(resource);
     }
 
 
@@ -250,7 +263,22 @@ public class RegistrationService implements AuthenticationProvider {
         String emailA = authentication.getName();
         String passwordA = authentication.getCredentials().toString();
 
-        UserDto userDto = checkData(emailA, passwordA);
+        UserDto userDto = checkData(emailA);
+
+        if (userDto == null) {
+            throw new BadCredentialsException("Пользователь не найден!");
+        }
+
+        String hashFromDb;
+        if (userDto.getPassword() != null) {
+            hashFromDb = userDto.getPassword();
+        } else {
+            hashFromDb = "";
+        }
+
+        if (!passwordEncoder.matches(passwordA, hashFromDb)) {
+            throw new BadCredentialsException("Неверный пароль!");
+        }
 
         return new UsernamePasswordAuthenticationToken(
                 userDto.getId(),

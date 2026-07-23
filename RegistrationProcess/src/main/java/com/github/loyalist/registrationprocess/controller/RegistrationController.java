@@ -6,13 +6,15 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -36,11 +38,17 @@ public class RegistrationController {
             @ApiResponse(responseCode = "200", description = "Метаданные и id успешно получены"),
             @ApiResponse(responseCode = "404", description = "Пользователь не найден")
     })
-    public ResponseEntity<String> checkData(@RequestBody UserDto userDto) {
+    public ResponseEntity<String> checkData(@RequestBody UserDto userDto,
+                                            HttpServletRequest request,
+                                            HttpServletResponse response) {
         UsernamePasswordAuthenticationToken authRequest =
                 new UsernamePasswordAuthenticationToken(userDto.getEmail(), userDto.getPassword());
         Authentication authentication = registrationService.authenticate(authRequest);
+
         SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
+        securityContextRepository.saveContext(SecurityContextHolder.getContext(), request, response);
 
         assert authentication != null;
         Long userId = (Long) authentication.getPrincipal();
@@ -87,8 +95,8 @@ public class RegistrationController {
                                              @RequestParam("file") MultipartFile file,
                                              @RequestParam(value = "filename", required = false) String filename) {
         Long userId = (Long) authentication.getPrincipal();
-        String id = registrationService.uploadFile(file, userId, filename);
-        return ResponseEntity.ok("Файл успешно загружен и имеет ID: " + id);
+        String response = registrationService.uploadFile(file, userId, filename);
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/delete")
@@ -113,13 +121,9 @@ public class RegistrationController {
             @ApiResponse(responseCode = "404", description = "Файл не найден для указанного пользователя")
     })
     public ResponseEntity<Resource> downloadFile(Authentication authentication,
-                                                    @RequestParam String filename) {
+                                                 @RequestParam String filename) {
         Long userId = (Long) authentication.getPrincipal();
-        Resource resource = registrationService.downloadFile(userId, filename);
 
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(resource);
+        return registrationService.downloadFile(userId, filename);
     }
 }

@@ -23,12 +23,12 @@ public class FileMetadataEntity {
     @Column(name = "filename", nullable = false, length = 100)
     private String filename;
 
-    @Column(name = "s3_key", nullable = false, length = 100)
+    @Column(name = "s3_key", nullable = false, length = 500)
     private String s3Key;
 
     @Column(name = "size_file", nullable = false)
     private Long sizeFile;
 
-    @Column(name = "content_type", nullable = false)
+    @Column(name = "content_type", nullable = false, length = 100)
     private String contentType;
 }

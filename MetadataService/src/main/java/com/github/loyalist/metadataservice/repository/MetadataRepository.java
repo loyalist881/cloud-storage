@@ -16,7 +16,7 @@ import java.util.Optional;
 @Repository
 public interface MetadataRepository extends JpaRepository<FileMetadataEntity, Long> {
     @Query(nativeQuery = true,
-            value = "SELECT * FROM cloud.metadata u where u.user_id=?1 and u.filename=?2")
+            value = "SELECT * FROM cloud.metadata u where u.user_id=?1 and u.filename=?2 order by id desc limit 1")
     Optional<FileMetadataEntity> findByUserIdAndFilename(Long userId, String filename);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -30,6 +30,6 @@ public interface MetadataRepository extends JpaRepository<FileMetadataEntity, Lo
     List<GetAllDto> getAllFilenames(Pageable pageable);
 
     @Query(nativeQuery = true,
-            value = "SELECT * FROM cloud.user u where u.e_mail=?1 and u.password=?2")
-    Optional<UserEntity> findEmailAndPassword(String email, String password);
+            value = "SELECT * FROM cloud.users u WHERE u.email = :email")
+    Optional<UserEntity> findByEmail(@Param("email") String email);
 }

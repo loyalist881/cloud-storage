@@ -26,12 +26,20 @@ public class MetadataService {
     public FileMetadataEntity saveFileMetadata(UploadDto uploadDto) {
         FileMetadataEntity fileMetadataEntity = new FileMetadataEntity();
         fileMetadataEntity.setUserId(uploadDto.getUserId());
-        String original = uploadDto.getFilename();
-        String nameWithoutExt = original.substring(0, original.lastIndexOf('.'));
-        fileMetadataEntity.setFilename(nameWithoutExt);
         fileMetadataEntity.setS3Key(uploadDto.getS3Key());
         fileMetadataEntity.setSizeFile(uploadDto.getSizeFile());
         fileMetadataEntity.setContentType(uploadDto.getContentType());
+
+        String original = uploadDto.getFilename();
+        String finalName = original;
+        int counter = 1;
+
+        while (metadataRepository.findByUserIdAndFilename(uploadDto.getUserId(), finalName).isPresent()) {
+            finalName = original + " (" + counter + ")";
+            counter++;
+        }
+
+        fileMetadataEntity.setFilename(finalName);
 
         return metadataRepository.save(fileMetadataEntity);
     }
@@ -57,7 +65,7 @@ public class MetadataService {
     }
 
     @Transactional
-    public Optional<UserEntity> findEmailAndPassword(String email, String password) {
-        return metadataRepository.findEmailAndPassword(email, password);
+    public Optional<UserEntity> findByEmail(String email) {
+        return metadataRepository.findByEmail(email);
     }
 }

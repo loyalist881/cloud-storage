@@ -1,0 +1,7 @@
+databaseChangeLog:
+  - include:
+      file: changesets/v1_init_schema_and_tables.sql
+      relativeToChangelogFile: true
+  - include:
+      file: changesets/v2_insert_test_data.sql
+      relativeToChangelogFile: true

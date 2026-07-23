@@ -2,7 +2,6 @@ package com.github.loyalist.metadataservice.controller;
 
 import com.github.loyalist.dto.metadata.*;
 import com.github.loyalist.metadataservice.entity.FileMetadataEntity;
-import com.github.loyalist.metadataservice.entity.UserEntity;
 import com.github.loyalist.metadataservice.service.MetadataService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -51,7 +50,7 @@ public class MetadataController {
         return metadataService.findByUserIdAndFilename(userId, filename)
                 .map(entity -> {
                     UploadDto uploadDto = UploadDto.builder()
-                            .userId(entity.getId())
+                            .userId(entity.getUserId())
                             .filename(entity.getFilename())
                             .s3Key(entity.getS3Key())
                             .sizeFile(entity.getSizeFile())
@@ -105,19 +104,19 @@ public class MetadataController {
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Получение почты и пароля",
-            description = "Получает от 'RegistrationService' почту и пароль пользователя, " +
-                    "проверяет их, а затем отправляет обратно id и почту")
+    @Operation(summary = "Получение пользователя по email",
+            description = "Получает email от 'RegistrationService' и возвращает id, email и зашифрованный пароль")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Метаданные найдены"),
-            @ApiResponse(responseCode = "404", description = "Метаданные не найден")
+            @ApiResponse(responseCode = "200", description = "Пользователь найден"),
+            @ApiResponse(responseCode = "404", description = "Пользователь не найден")
     })
     public ResponseEntity<UserDto> findEmailAndPassword(@RequestBody UserDto userDto) {
-        return metadataService.findEmailAndPassword(userDto.getEmail(), userDto.getPassword())
+        return metadataService.findByEmail(userDto.getEmail())
         .map(user -> {
             UserDto responseDto = UserDto.builder()
                     .id(user.getId())
                     .email(user.getEmail())
+                    .password(user.getPassword())
                     .build();
 
             return ResponseEntity.ok(responseDto);
